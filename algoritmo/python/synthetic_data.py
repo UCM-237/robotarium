@@ -82,7 +82,7 @@ def compute_alpha_dot(p, v):
     Pb31 = np.eye(2) - np.outer(b31,b31)
     Pb32 = np.eye(2) - np.outer(b32,b32)
 
-    alpha312_dot = -((Pb13.dot(v3-v1)).T.dot(b12)/l13  + b13.dot(Pb12).dot(v2-v1)/l13)/np.sin(alpha[0])
+    alpha312_dot = -((Pb13.dot(v3-v1)).T.dot(b12)/l13  + b13.dot(Pb12).dot(v2-v1)/l12)/np.sin(alpha[0])
     alpha123_dot = -((Pb21.dot(v1-v2)).T.dot(b23)/l21  + b21.dot(Pb23).dot(v3-v2)/l23)/np.sin(alpha[1])
     alpha231_dot = -((Pb32.dot(v2-v3)).T.dot(b31)/l32  + b32.dot(Pb31).dot(v1-v3)/l31)/np.sin(alpha[2])
 
@@ -138,8 +138,8 @@ M2 = M2t123(alpha_ex, alpha_dot_ex)
 # First, we need to move the robots, lets do the isosceles triangle experiment
 
 tf = 30
-dt_inv = 100 # Sampling frequency in sec^-1
-dt = 0.01
+dt_inv = 1000 # Sampling frequency in sec^-1
+dt = 1.0/dt_inv
 
 log_time = np.linspace(0, tf, tf*dt_inv)
 log_p = np.zeros((6, np.size(log_time)))
@@ -170,7 +170,7 @@ for i in range(np.size(log_time)):
 
     v = np.zeros(6)
     v[0:2] = np.array([0, v1y])
-    v[2:4] = np.array([-2*v1y,0])
+    v[2:4] = np.array([2*v1y,0])
     v[4:6] = np.array([0,0])
 
     # Measurements
@@ -184,12 +184,13 @@ for i in range(np.size(log_time)):
     if i > 1:
         num_alpha_dot = (alpha - log_alpha[:, i-1]) / dt
     else:
-        num_alpha_dot = np.zeros(3)
+        num_alpha_dot = np.zeros(3) + 0.01
 
     alpha_dot = compute_alpha_dot(p,v)
+    #alpha_dot = num_alpha_dot
 
     # Check that numerical and analytic are similar
-    # print(alpha_dot - num_alpha_dot)
+    print(alpha_dot - num_alpha_dot)
 
     # Theorem 1, Eq 16
     M2 = M2t123(alpha, alpha_dot) # alpha = [a312 a123 a231]
