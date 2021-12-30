@@ -138,7 +138,7 @@ M2 = M2t123(alpha_ex, alpha_dot_ex)
 # First, we need to move the robots, lets do the isosceles triangle experiment
 
 tf = 30
-dt_inv = 1000 # Sampling frequency in sec^-1
+dt_inv = 100 # Sampling frequency in sec^-1
 dt = 1.0/dt_inv
 
 log_time = np.linspace(0, tf, tf*dt_inv)
@@ -170,7 +170,7 @@ for i in range(np.size(log_time)):
 
     v = np.zeros(6)
     v[0:2] = np.array([0, v1y])
-    v[2:4] = np.array([2*v1y,0])
+    v[2:4] = np.array([0,0])
     v[4:6] = np.array([0,0])
 
     # Measurements
@@ -190,7 +190,7 @@ for i in range(np.size(log_time)):
     #alpha_dot = num_alpha_dot
 
     # Check that numerical and analytic are similar
-    print(alpha_dot - num_alpha_dot)
+    # print(alpha_dot - num_alpha_dot)
 
     # Theorem 1, Eq 16
     M2 = M2t123(alpha, alpha_dot) # alpha = [a312 a123 a231]
