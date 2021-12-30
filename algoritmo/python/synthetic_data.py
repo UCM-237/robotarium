@@ -68,7 +68,6 @@ def compute_alpha_dot(p, v):
     l31 = la.norm(p1-p3)
     l13 = l31
 
-    # Note that in practice we only need to measure the bearings, and we do not need p1, p2, p3.
     b12 = (p2 - p1) / l12
     b21 = -b12
     b23 = (p3 - p2) / l23
@@ -171,7 +170,7 @@ for i in range(np.size(log_time)):
 
     v = np.zeros(6)
     v[0:2] = np.array([0, v1y])
-    v[2:4] = np.array([0,0])
+    v[2:4] = np.array([-2*v1y,0])
     v[4:6] = np.array([0,0])
 
     # Measurements
@@ -181,7 +180,7 @@ for i in range(np.size(log_time)):
     v23 = v[4:6] - v[2:4]
     alpha = compute_alphas_from_p(p)
 
-    # alpha_dot numerical
+    # alpha_dot numerical, with the experimental data, we need to use this one
     if i > 1:
         num_alpha_dot = (alpha - log_alpha[:, i-1]) / dt
     else:
