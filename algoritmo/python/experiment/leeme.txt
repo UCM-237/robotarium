@@ -1,0 +1,12 @@
+XYZ
+
+Z dirección de avance
+X a la derecha de Z
+Y abajo
+
+Matriz de conversion
+
+(v w)'= { {R/L , -R/L} , 
+          {R/2 , R/2} } * ( wD , wI)';
+
+Donde R = 3.35 y L =12.4
