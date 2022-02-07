@@ -2,6 +2,9 @@ import matplotlib.pyplot as pl
 import numpy as np
 from numpy import linalg as la
 
+r1_log = np.loadtxt("./experiment/1_logoRobot1.txt", delimiter=',', skiprows = 2)
+r2_log = np.loadtxt("./experiment/1_logoRobot2.txt", delimiter=',', skiprows = 2)
+
 def Rot(theta):
     # Rotation matrix
     return np.array([[np.cos(theta), -np.sin(theta)],[np.sin(theta), np.cos(theta)]])
@@ -165,12 +168,14 @@ k = 5 # estimator gain kc in Eq. 21
 
 for i in range(np.size(log_time)):
 
+    # 
+
     # Velocity of robot 1
-    v1y = 10*2*np.pi*np.cos(2*np.pi*log_time[i])
+    v2x = 
 
     v = np.zeros(6)
-    v[0:2] = np.array([0, v1y])
-    v[2:4] = np.array([0,0])
+    v[0:2] = np.array([0,0])
+    v[2:4] = np.array([v2x,0])
     v[4:6] = np.array([0,0])
 
     # Measurements

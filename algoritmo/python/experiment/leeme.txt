@@ -10,3 +10,5 @@ Matriz de conversion
           {R/2 , R/2} } * ( wD , wI)';
 
 Donde R = 3.35 y L =12.4
+
+Robot 2 se mueve
