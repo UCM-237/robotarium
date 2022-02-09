@@ -1,6 +1,7 @@
 import matplotlib.pyplot as pl
 import numpy as np
 from numpy import linalg as la
+from scipy.linalg import block_diag
 
 r1_log = np.loadtxt("./experiment/1_logoRobot1.txt", delimiter=',', skiprows = 2)
 r2_log = np.loadtxt("./experiment/1_logoRobot2.txt", delimiter=',', skiprows = 2)
@@ -49,6 +50,30 @@ def compute_alphas_from_p(p):
         alpha[2] = np.arccos(b31.dot(b32))
     else:
         alpha[2] = 2*np.pi - np.arccos(b31.dot(b32))
+
+    return alpha
+
+def compute_alpha_jik_from_arucos(pji, pki):
+    lji = la.norm(pji[0:2])
+    lij = lji
+    lki = la.norm(pki[0:2])
+    lik = lki
+
+    bji = pji[0:2] / lji
+    bij = -bji
+    bki = pki[0:2] / lki
+    bik = -bki
+
+    Rot90 = Rot(np.pi/2)
+    bjip = Rot90.dot(bji)
+    bijp = Rot90.dot(bij)
+    bkip = Rot90.dot(bki)
+    bikp = Rot90.dot(bik)
+
+    if (bij.dot(bikp) > 0):
+        alpha = np.arccos(bij.dot(bik)) # ajik
+    else:
+        alpha = 2*np.pi - np.arccos(bij.dot(bik))
 
     return alpha
 
@@ -140,8 +165,8 @@ M2 = M2t123(alpha_ex, alpha_dot_ex)
 # Check Theorem 1 & Theorem 2
 # First, we need to move the robots, lets do the isosceles triangle experiment
 
-tf = 30
-dt_inv = 100 # Sampling frequency in sec^-1
+tf = int(r1_log[-1][0] / 1000)
+dt_inv = 10 # Sampling frequency in sec^-1
 dt = 1.0/dt_inv
 
 log_time = np.linspace(0, tf, tf*dt_inv)
@@ -166,24 +191,65 @@ p[4:6] = p3
 p13p21_hat = np.zeros(4) # For the estimator in Theorem 2
 k = 5 # estimator gain kc in Eq. 21
 
+# Conversion matrix for robot's velocities
+
+R = 3.35 # Wheel's radius cm
+L = 12.4 # Nu sep que es cm
+Mc = np.array([[R/L, -R/L],[R/2.0, R/2.0]])
+
 for i in range(np.size(log_time)):
 
-    # 
+    # Robots' velocities
+    r1_wR = r1_log[i][1]
+    r1_wL = r1_log[i][2]
+    r2_wR = r2_log[i][1]
+    r2_wL = r2_log[i][2]
+    r3_wR = 0.0
+    r3_wL = 0.0
 
-    # Velocity of robot 1
-    v2x = 
+    r1_vel = Mc.dot(np.array([r1_wR, r1_wL]))
+    r2_vel = Mc.dot(np.array([r2_wR, r2_wL]))
+    r3_vel = Mc.dot(np.array([r3_wR, r3_wL]))
 
+    w = r1_vel[1]
+    W = np.array([[0, -w],[w, 0]])
+    Wblock = block_diag(W, W)
+
+    # All the velocities are measured in body axes, there is no y component, our robots do not slide
     v = np.zeros(6)
-    v[0:2] = np.array([0,0])
-    v[2:4] = np.array([v2x,0])
-    v[4:6] = np.array([0,0])
+    v[0:2] = np.array([r1_vel[0],0])
+    v[2:4] = np.array([r2_vel[0],0])
+    v[4:6] = np.array([r3_vel[0],0])
 
     # Measurements
+    # Relative velocities are easy in this case because only robot 2 is moving
     v21 = v[0:2] - v[2:4]
     v31 = v[0:2] - v[4:6]
     v13 = -v31
     v23 = v[4:6] - v[2:4]
-    alpha = compute_alphas_from_p(p)
+
+    #alpha = compute_alphas_from_p(p)
+    if(np.abs(r1_log[i][4]) < 9000  or np.abs(r1_log[i][8]) < 9000): # if two markers were detected
+        if r1_log[i][3] == 2:
+            p21 = np.array([r1_log[i][4],r1_log[i][5],r1_log[i][6]])
+            p31 = np.array([r1_log[i][8],r1_log[i][9],r1_log[i][10]])
+        else:
+            p31 = np.array([r1_log[i][4],r1_log[i][5],r1_log[i][6]])
+            p21 = np.array([r1_log[i][8],r1_log[i][9],r1_log[i][10]])
+
+        alpha_312 = compute_alpha_jik_from_arucos(p31, p21)
+
+    if(np.abs(r2_log[i][4]) < 9000  or np.abs(r2_log[i][8]) < 9000): # if two markers were detected
+        if r1_log[i][3] == 1:
+            p12 = np.array([r1_log[i][4],r1_log[i][5],r1_log[i][6]])
+            p32 = np.array([r1_log[i][8],r1_log[i][9],r1_log[i][10]])
+        else:
+            p32 = np.array([r1_log[i][4],r1_log[i][5],r1_log[i][6]])
+            p12 = np.array([r1_log[i][8],r1_log[i][9],r1_log[i][10]])
+
+        alpha_123 = compute_alpha_jik_from_arucos(p12, p32)
+
+   # The algoritm is programmed for a312 a123 a231
 
     # alpha_dot numerical, with the experimental data, we need to use this one
     if i > 1:
@@ -212,7 +278,7 @@ for i in range(np.size(log_time)):
     v13v21 = np.zeros(4)
     v13v21[0:2] = v13
     v13v21[2:4] = v21
-    p13p21_hat_dot = v13v21 - k*M2.T.dot(M2).dot(p13p21_hat) + k*M2.T.dot(aux)
+    p13p21_hat_dot = v13v21 - k*M2.T.dot(M2).dot(p13p21_hat) + k*M2.T.dot(aux) + Wblock.dot(p13p21_hat)
 
     p13p21_hat = p13p21_hat + p13p21_hat_dot * dt
 
