@@ -178,16 +178,6 @@ log_alpha_dot = np.zeros((3, np.size(log_time)))
 log_error_th1 = np.zeros((4, np.size(log_time)))
 log_error_th2 = np.zeros((4, np.size(log_time)))
 
-# Initial conditions
-p1 = np.array([50,100])  # cm
-p2 = np.array([0, 0])
-p3 = np.array([100, 0])
-
-p = np.zeros(6)
-p[0:2] = p1
-p[2:4] = p2
-p[4:6] = p3
-
 p13p21_hat = np.zeros(4) # For the estimator in Theorem 2
 k = 5 # estimator gain kc in Eq. 21
 
@@ -211,15 +201,15 @@ for i in range(np.size(log_time)):
     r2_vel = Mc.dot(np.array([r2_wR, r2_wL]))
     r3_vel = Mc.dot(np.array([r3_wR, r3_wL]))
 
-    w = r1_vel[1]
+    w = r1_vel[0]
     W = np.array([[0, -w],[w, 0]])
     Wblock = block_diag(W, W)
 
     # All the velocities are measured in body axes, there is no y component, our robots do not slide
     v = np.zeros(6)
-    v[0:2] = np.array([r1_vel[0],0])
-    v[2:4] = np.array([r2_vel[0],0])
-    v[4:6] = np.array([r3_vel[0],0])
+    v[0:2] = np.array([r1_vel[1],0])
+    v[2:4] = np.array([r2_vel[1],0])
+    v[4:6] = np.array([r3_vel[1],0])
 
     # Measurements
     # Relative velocities are easy in this case because only robot 2 is moving
@@ -228,22 +218,25 @@ for i in range(np.size(log_time)):
     v13 = -v31
     v23 = v[4:6] - v[2:4]
 
-    #alpha = compute_alphas_from_p(p)
+    alpha_measurements = 0
+    alpha_dot_measurements = 0
+
     if(np.abs(r1_log[i][4]) < 9000  and np.abs(r1_log[i][8]) < 9000 and np.abs(r2_log[i][4]) < 9000  and np.abs(r2_log[i][8]) < 9000): # if four markers were detected
         if r1_log[i][3] == 2:
-            p12 = np.array([r1_log[i][4],r1_log[i][6],r1_log[i][5]])
-            p13 = np.array([r1_log[i][8],r1_log[i][10],r1_log[i][9]])
+            p12 = np.array([r1_log[i][4],r1_log[i][6],r1_log[i][5]]) * 100.0
+            p13 = np.array([r1_log[i][8],r1_log[i][10],r1_log[i][9]]) * 100.0
         else:
-            p13 = np.array([r1_log[i][4],r1_log[i][6],r1_log[i][5]])
-            p12 = np.array([r1_log[i][8],r1_log[i][10],r1_log[i][9]])
+            p13 = np.array([r1_log[i][4],r1_log[i][6],r1_log[i][5]]) * 100.0
+            p12 = np.array([r1_log[i][8],r1_log[i][10],r1_log[i][9]]) * 100.0
 
         if r2_log[i][3] == 1:
-            p21 = np.array([r2_log[i][4],r2_log[i][6],r2_log[i][5]])
-            p23 = np.array([r2_log[i][8],r2_log[i][10],r2_log[i][9]])
+            p21 = np.array([r2_log[i][4],r2_log[i][6],r2_log[i][5]]) * 100.0
+            p23 = np.array([r2_log[i][8],r2_log[i][10],r2_log[i][9]]) * 100.0
         else:
-            p23 = np.array([r2_log[i][4],r2_log[i][6],r2_log[i][5]])
-            p21 = np.array([r2_log[i][8],r2_log[i][10],r2_log[i][9]])
+            p23 = np.array([r2_log[i][4],r2_log[i][6],r2_log[i][5]]) * 100.0
+            p21 = np.array([r2_log[i][8],r2_log[i][10],r2_log[i][9]]) *100.0
 
+        # The algoritm is programmed for a312 a123 a231
         alpha_123 = compute_alpha_kij_from_arucos(p23, p21)
         alpha_312 = compute_alpha_kij_from_arucos(p12, p13)
 
@@ -253,53 +246,65 @@ for i in range(np.size(log_time)):
             alpha_231 = np.pi - alpha_123 - alpha_312
 
         print(int(log_time[i]*1000 + 100), alpha_312*180/np.pi, alpha_123*180/np.pi, alpha_231*180/np.pi)
+        alpha_measurements = 1
+        alpha = np.zeros(3)
+        alpha[0] = alpha_312
+        alpha[1] = alpha_123
+        alpha[2] = alpha_231
 
-
-   # The algoritm is programmed for a312 a123 a231
+        # Relative positions from Aruco measurements to compare
+        p13p21 = np.zeros(4)
+        p13p21[0:2] = p13[0:2]
+        p13p21[2:4] = p21[0:2]
 
     # alpha_dot numerical, with the experimental data, we need to use this one
-    if i > 1:
-        num_alpha_dot = (alpha - log_alpha[:, i-1]) / dt
-    else:
-        num_alpha_dot = np.zeros(3) + 0.01
-
-    alpha_dot = compute_alpha_dot(p,v)
-    #alpha_dot = num_alpha_dot
-
-    # Check that numerical and analytic are similar
-    # print(alpha_dot - num_alpha_dot)
+    if ((i > 1) and (log_alpha[0, i-1] != -9999) and alpha_measurements):
+        alpha_dot = (alpha - log_alpha[:, i-1]) / dt
+        alpha_dot_measurements = 1
+        print("Alpha dot: ", alpha_dot*180/np.pi)
 
     # Theorem 1, Eq 16
-    M2 = M2t123(alpha, alpha_dot) # alpha = [a312 a123 a231]
-    aux = np.zeros(4) # We will use it for Theorem 2 too.
-    aux[0:2] = np.sin(alpha[1])*Rot(alpha[0]).T.dot(v21) - np.sin(alpha[2])*v31
-    aux[2:4] = np.sin(alpha[0])*Rot(alpha[2]).T.dot(v13) - np.sin(alpha[1])*v23
-    p13p21estTh1 = la.inv(M2).dot(aux)
-
-    p13p21 = np.zeros(4) # So we can compare the estimation with the simulation
-    p13p21[0:2] = p[4:6]-p[0:2]
-    p13p21[2:4] = p[0:2]-p[2:4]
+    if (alpha_dot_measurements == 1):
+        M2 = M2t123(alpha, alpha_dot) # alpha = [a312 a123 a231]
+        aux = np.zeros(4) # We will use it for Theorem 2 too.
+        aux[0:2] = np.sin(alpha[1])*Rot(alpha[0]).T.dot(v21) - np.sin(alpha[2])*v31
+        aux[2:4] = np.sin(alpha[0])*Rot(alpha[2]).T.dot(v13) - np.sin(alpha[1])*v23
+        if(la.cond(M2) < 1e6):
+            p13p21estTh1 = la.inv(M2).dot(aux)
+            print("Direct measurement vel: ", v21, v31, v13, v23)
+            print("Direct measurement: ", p13p21estTh1[0:2], p13[0:2], p13p21estTh1[0:2], p21[0:2])
 
     # Theorem 2, Eq 21
     v13v21 = np.zeros(4)
     v13v21[0:2] = v13
     v13v21[2:4] = v21
-    p13p21_hat_dot = v13v21 - k*M2.T.dot(M2).dot(p13p21_hat) + k*M2.T.dot(aux) + Wblock.dot(p13p21_hat)
 
-    p13p21_hat = p13p21_hat + p13p21_hat_dot * dt
-
+    if(alpha_dot_measurements == 1):
+        p13p21_hat_dot = v13v21 - k*M2.T.dot(M2).dot(p13p21_hat) + k*M2.T.dot(aux) + Wblock.dot(p13p21_hat)
+        p13p21_hat = p13p21_hat + p13p21_hat_dot * dt
+        print("Estimator: ", p13p21_hat[0:2], p13[0:2], p13p21_hat[0:2], p21[0:2])
+    else:
+        p13p21_hat_dot = v13v21 + Wblock.dot(p13p21_hat)
+        p13p21_hat = p13p21_hat + p13p21_hat_dot * dt
 
     # Logs
-    log_error_th1[:,i] = p13p21 - p13p21estTh1
-    log_error_th2[:,i] = p13p21 - p13p21_hat
 
-    log_p[:,i] = p
     log_v[:,i] = v
-    log_alpha[:, i] = alpha
-    log_alpha_dot[:, i] = alpha_dot
+    if(alpha_measurements == 0):
+        log_alpha[:, i] = -9999*np.ones(3)
+    else:
+        log_alpha[:, i] = alpha
+    if(alpha_dot_measurements == 0):
+        log_alpha_dot[:, i] = -9999*np.ones(3)
+        log_error_th1[:,i] = -9999*np.ones(4)
+        log_error_th2[:,i] = -9999*np.ones(4)
+    else:
+        log_alpha_dot[:, i] = alpha_dot
+        log_error_th1[:,i] = p13p21 - p13p21estTh1
+        log_error_th2[:,i] = p13p21 - p13p21_hat
 
-    # Simulated world
-    p = p + v*dt
+    if(i > 21):
+        break
 
 # Postprocessing
 
