@@ -53,22 +53,22 @@ def compute_alphas_from_p(p):
 
     return alpha
 
-def compute_alpha_jik_from_arucos(pji, pki):
-    lji = la.norm(pji[0:2])
-    lij = lji
-    lki = la.norm(pki[0:2])
-    lik = lki
+def compute_alpha_kij_from_arucos(pij, pik):
+    lij = la.norm(pij[0:2])
+    lji = lij
+    lik = la.norm(pik[0:2])
+    lkk = lik
 
-    bji = pji[0:2] / lji
-    bij = -bji
-    bki = pki[0:2] / lki
-    bik = -bki
+    bij = pij[0:2] / lij
+    bji = -bij
+    bik = pik[0:2] / lik
+    bki = -bik
 
     Rot90 = Rot(np.pi/2)
-    bjip = Rot90.dot(bji)
     bijp = Rot90.dot(bij)
-    bkip = Rot90.dot(bki)
+    bjip = Rot90.dot(bji)
     bikp = Rot90.dot(bik)
+    bkip = Rot90.dot(bki)
 
     if (bij.dot(bikp) > 0):
         alpha = np.arccos(bij.dot(bik)) # ajik
@@ -229,25 +229,31 @@ for i in range(np.size(log_time)):
     v23 = v[4:6] - v[2:4]
 
     #alpha = compute_alphas_from_p(p)
-    if(np.abs(r1_log[i][4]) < 9000  or np.abs(r1_log[i][8]) < 9000): # if two markers were detected
+    if(np.abs(r1_log[i][4]) < 9000  and np.abs(r1_log[i][8]) < 9000 and np.abs(r2_log[i][4]) < 9000  and np.abs(r2_log[i][8]) < 9000): # if four markers were detected
         if r1_log[i][3] == 2:
-            p21 = np.array([r1_log[i][4],r1_log[i][5],r1_log[i][6]])
-            p31 = np.array([r1_log[i][8],r1_log[i][9],r1_log[i][10]])
+            p12 = np.array([r1_log[i][4],r1_log[i][6],r1_log[i][5]])
+            p13 = np.array([r1_log[i][8],r1_log[i][10],r1_log[i][9]])
         else:
-            p31 = np.array([r1_log[i][4],r1_log[i][5],r1_log[i][6]])
-            p21 = np.array([r1_log[i][8],r1_log[i][9],r1_log[i][10]])
+            p13 = np.array([r1_log[i][4],r1_log[i][6],r1_log[i][5]])
+            p12 = np.array([r1_log[i][8],r1_log[i][10],r1_log[i][9]])
 
-        alpha_312 = compute_alpha_jik_from_arucos(p31, p21)
-
-    if(np.abs(r2_log[i][4]) < 9000  or np.abs(r2_log[i][8]) < 9000): # if two markers were detected
-        if r1_log[i][3] == 1:
-            p12 = np.array([r1_log[i][4],r1_log[i][5],r1_log[i][6]])
-            p32 = np.array([r1_log[i][8],r1_log[i][9],r1_log[i][10]])
+        if r2_log[i][3] == 1:
+            p21 = np.array([r2_log[i][4],r2_log[i][6],r2_log[i][5]])
+            p23 = np.array([r2_log[i][8],r2_log[i][10],r2_log[i][9]])
         else:
-            p32 = np.array([r1_log[i][4],r1_log[i][5],r1_log[i][6]])
-            p12 = np.array([r1_log[i][8],r1_log[i][9],r1_log[i][10]])
+            p23 = np.array([r2_log[i][4],r2_log[i][6],r2_log[i][5]])
+            p21 = np.array([r2_log[i][8],r2_log[i][10],r2_log[i][9]])
 
-        alpha_123 = compute_alpha_jik_from_arucos(p12, p32)
+        alpha_123 = compute_alpha_kij_from_arucos(p23, p21)
+        alpha_312 = compute_alpha_kij_from_arucos(p12, p13)
+
+        if(alpha_123 > np.pi):
+            alpha_231 = 5*np.pi - alpha_123 - alpha_312
+        else:
+            alpha_231 = np.pi - alpha_123 - alpha_312
+
+        print(int(log_time[i]*1000 + 100), alpha_312*180/np.pi, alpha_123*180/np.pi, alpha_231*180/np.pi)
+
 
    # The algoritm is programmed for a312 a123 a231
 
