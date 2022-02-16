@@ -186,8 +186,8 @@ for i in range(np.size(log_time)):
     else:
         num_alpha_dot = np.zeros(3) + 0.01
 
-    alpha_dot = compute_alpha_dot(p,v)
-    #alpha_dot = num_alpha_dot
+    #alpha_dot = compute_alpha_dot(p,v)
+    alpha_dot = num_alpha_dot
 
     # Check that numerical and analytic are similar
     # print(alpha_dot - num_alpha_dot)

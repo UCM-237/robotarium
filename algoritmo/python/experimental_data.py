@@ -190,8 +190,8 @@ Mc = np.array([[R/L, -R/L],[R/2.0, R/2.0]])
 for i in range(np.size(log_time)):
 
     # Robots' velocities
-    r1_wR = r1_log[i][1]
-    r1_wL = r1_log[i][2]
+    r1_wR = 0.0*r1_log[i][1]
+    r1_wL = 0.0*r1_log[i][2]
     r2_wR = r2_log[i][1]
     r2_wL = r2_log[i][2]
     r3_wR = 0.0
@@ -207,9 +207,9 @@ for i in range(np.size(log_time)):
 
     # All the velocities are measured in body axes, there is no y component, our robots do not slide
     v = np.zeros(6)
-    v[0:2] = np.array([r1_vel[1],0])
-    v[2:4] = np.array([r2_vel[1],0])
-    v[4:6] = np.array([r3_vel[1],0])
+    v[0:2] = np.array([0, r1_vel[1]])
+    v[2:4] = np.array([0, r2_vel[1]])
+    v[4:6] = np.array([0, r3_vel[1]])
 
     # Measurements
     # Relative velocities are easy in this case because only robot 2 is moving
@@ -272,7 +272,7 @@ for i in range(np.size(log_time)):
         if(la.cond(M2) < 1e6):
             p13p21estTh1 = la.inv(M2).dot(aux)
             print("Direct measurement vel: ", v21, v31, v13, v23)
-            print("Direct measurement: ", p13p21estTh1[0:2], p13[0:2], p13p21estTh1[0:2], p21[0:2])
+            print("Direct measurement: ", p13p21estTh1[0:2], p13[0:2], p13p21estTh1[2:4], p21[0:2])
 
     # Theorem 2, Eq 21
     v13v21 = np.zeros(4)
@@ -282,7 +282,7 @@ for i in range(np.size(log_time)):
     if(alpha_dot_measurements == 1):
         p13p21_hat_dot = v13v21 - k*M2.T.dot(M2).dot(p13p21_hat) + k*M2.T.dot(aux) + Wblock.dot(p13p21_hat)
         p13p21_hat = p13p21_hat + p13p21_hat_dot * dt
-        print("Estimator: ", p13p21_hat[0:2], p13[0:2], p13p21_hat[0:2], p21[0:2])
+        print("Estimator: ", p13p21_hat[0:2], p13[0:2], p13p21_hat[2:4], p21[0:2])
     else:
         p13p21_hat_dot = v13v21 + Wblock.dot(p13p21_hat)
         p13p21_hat = p13p21_hat + p13p21_hat_dot * dt
@@ -345,5 +345,17 @@ axis[3].set_ylabel("$\hat p_{{21}_y} -  p_{{21}_y}$ [cm]")
 axis[3].set_xlabel("Time [s]")
 for ax in axis:
     ax.grid()
+
+# Velocity signals
+fig, axis = pl.subplots(4,1, sharex=True)
+axis[0].set_title("Relative velocities")
+axis[0].plot(log_time[:], log_v[0,:])
+axis[1].plot(log_time[:], log_v[1,:])
+axis[2].plot(log_time[:], log_v[2,:])
+axis[3].plot(log_time[:], log_v[3,:])
+axis[3].set_xlabel("Time [s]")
+for ax in axis:
+    ax.grid()
+
 
 pl.show()
