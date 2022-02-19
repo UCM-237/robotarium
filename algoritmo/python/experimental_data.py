@@ -3,8 +3,11 @@ import numpy as np
 from numpy import linalg as la
 from scipy.linalg import block_diag
 
-r1_log = np.loadtxt("./experiment/1_logoRobot1.txt", delimiter=',', skiprows = 2)
-r2_log = np.loadtxt("./experiment/1_logoRobot2.txt", delimiter=',', skiprows = 2)
+#r1_log = np.loadtxt("./experiment/1_logoRobot1.txt", delimiter=',', skiprows = 2)
+#r2_log = np.loadtxt("./experiment/1_logoRobot2.txt", delimiter=',', skiprows = 2)
+
+r1_log = np.loadtxt("./experiment2/logRP1_manual.txt", delimiter=',', skiprows = 2)
+r2_log = np.loadtxt("./experiment2/logRP2_manual.txt", delimiter=',', skiprows = 2)
 
 def Rot(theta):
     # Rotation matrix
@@ -166,8 +169,8 @@ M2 = M2t123(alpha_ex, alpha_dot_ex)
 # First, we need to move the robots, lets do the isosceles triangle experiment
 
 tf = int(r1_log[-1][0] / 1000)
-dt_inv = 10 # Sampling frequency in sec^-1
-dt = 1.0/dt_inv
+dt = 0.04
+dt_inv = 1.0/dt # Sampling frequency in sec^-1
 
 log_time = np.linspace(0, tf, tf*dt_inv)
 log_p = np.zeros((6, np.size(log_time)))
@@ -187,7 +190,14 @@ R = 3.35 # Wheel's radius cm
 L = 12.4 # Nu sep que es cm
 Mc = np.array([[R/L, -R/L],[R/2.0, R/2.0]])
 
+beg_time = 7
+end_time = 10
+
 for i in range(np.size(log_time)):
+
+    if(i < beg_time*25):
+        continue
+
 
     # Robots' velocities
     r1_wR = 0.0*r1_log[i][1]
@@ -303,7 +313,7 @@ for i in range(np.size(log_time)):
         log_error_th1[:,i] = p13p21 - p13p21estTh1
         log_error_th2[:,i] = p13p21 - p13p21_hat
 
-    if(i > 21):
+    if(i > end_time*25):
         break
 
 # Postprocessing
