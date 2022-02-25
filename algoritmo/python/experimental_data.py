@@ -6,8 +6,12 @@ from scipy.linalg import block_diag
 #r1_log = np.loadtxt("./experiment/1_logoRobot1.txt", delimiter=',', skiprows = 2)
 #r2_log = np.loadtxt("./experiment/1_logoRobot2.txt", delimiter=',', skiprows = 2)
 
-r1_log = np.loadtxt("./experiment2/logRP1_manual.txt", delimiter=',', skiprows = 2)
-r2_log = np.loadtxt("./experiment2/logRP2_manual.txt", delimiter=',', skiprows = 2)
+#r1_log = np.loadtxt("./experiment2/logRP1_manual.txt", delimiter=',', skiprows = 2)
+#r2_log = np.loadtxt("./experiment2/logRP2_manual.txt", delimiter=',', skiprows = 2)
+
+r1_log = np.loadtxt("./experiment3/logRP1_automatico.txt", delimiter=',', skiprows = 2)
+r2_log = np.loadtxt("./experiment3/logRP2_automatico.txt", delimiter=',', skiprows = 2)
+
 
 def Rot(theta):
     # Rotation matrix
@@ -169,7 +173,7 @@ M2 = M2t123(alpha_ex, alpha_dot_ex)
 # First, we need to move the robots, lets do the isosceles triangle experiment
 
 tf = int(r1_log[-1][0] / 1000)
-dt = 0.04
+dt = 0.02
 dt_inv = 1.0/dt # Sampling frequency in sec^-1
 
 log_time = np.linspace(0, tf, tf*dt_inv)
@@ -190,12 +194,12 @@ R = 3.35 # Wheel's radius cm
 L = 12.4 # Nu sep que es cm
 Mc = np.array([[R/L, -R/L],[R/2.0, R/2.0]])
 
-beg_time = 7
-end_time = 10
+beg_time = 0
+end_time = 1000
 
 for i in range(np.size(log_time)):
 
-    if(i < beg_time*25):
+    if(i < beg_time*50):
         continue
 
 
@@ -233,11 +237,11 @@ for i in range(np.size(log_time)):
 
     if(np.abs(r1_log[i][4]) < 9000  and np.abs(r1_log[i][8]) < 9000 and np.abs(r2_log[i][4]) < 9000  and np.abs(r2_log[i][8]) < 9000): # if four markers were detected
         if r1_log[i][3] == 2:
-            p12 = np.array([r1_log[i][4],r1_log[i][6],r1_log[i][5]]) * 100.0
-            p13 = np.array([r1_log[i][8],r1_log[i][10],r1_log[i][9]]) * 100.0
+            p12 = np.array([r1_log[i][4],-r1_log[i][6],-r1_log[i][5]]) * 100.0
+            p13 = np.array([r1_log[i][8],-r1_log[i][10],-r1_log[i][9]]) * 100.0
         else:
-            p13 = np.array([r1_log[i][4],r1_log[i][6],r1_log[i][5]]) * 100.0
-            p12 = np.array([r1_log[i][8],r1_log[i][10],r1_log[i][9]]) * 100.0
+            p13 = np.array([r1_log[i][4],-r1_log[i][6],-r1_log[i][5]]) * 100.0
+            p12 = np.array([r1_log[i][8],-r1_log[i][10],-r1_log[i][9]]) * 100.0
 
         if r2_log[i][3] == 1:
             p21 = np.array([r2_log[i][4],r2_log[i][6],r2_log[i][5]]) * 100.0
@@ -249,6 +253,12 @@ for i in range(np.size(log_time)):
         # The algoritm is programmed for a312 a123 a231
         alpha_123 = compute_alpha_kij_from_arucos(p23, p21)
         alpha_312 = compute_alpha_kij_from_arucos(p12, p13)
+
+        #if(alpha_123 > np.pi):
+        #    alpha_123 = 2*np.pi - alpha_123
+
+        #if(alpha_312 > np.pi):
+        #    alpha_312 = 2*np.pi - alpha_312
 
         if(alpha_123 > np.pi):
             alpha_231 = 5*np.pi - alpha_123 - alpha_312
@@ -268,7 +278,7 @@ for i in range(np.size(log_time)):
         p13p21[2:4] = p21[0:2]
 
     # alpha_dot numerical, with the experimental data, we need to use this one
-    if ((i > 1) and (log_alpha[0, i-1] != -9999) and alpha_measurements):
+    if ((i > 1) and not(np.isnan(log_alpha[0, i-1])) and alpha_measurements):
         alpha_dot = (alpha - log_alpha[:, i-1]) / dt
         alpha_dot_measurements = 1
         print("Alpha dot: ", alpha_dot*180/np.pi)
@@ -301,60 +311,60 @@ for i in range(np.size(log_time)):
 
     log_v[:,i] = v
     if(alpha_measurements == 0):
-        log_alpha[:, i] = -9999*np.ones(3)
+        log_alpha[:, i] = np.NaN*np.ones(3)
     else:
         log_alpha[:, i] = alpha
     if(alpha_dot_measurements == 0):
-        log_alpha_dot[:, i] = -9999*np.ones(3)
-        log_error_th1[:,i] = -9999*np.ones(4)
-        log_error_th2[:,i] = -9999*np.ones(4)
+        log_alpha_dot[:, i] = np.NaN*np.ones(3)
+        log_error_th1[:,i] = np.NaN*np.ones(4)
+        log_error_th2[:,i] = np.NaN*np.ones(4)
     else:
         log_alpha_dot[:, i] = alpha_dot
         log_error_th1[:,i] = p13p21 - p13p21estTh1
         log_error_th2[:,i] = p13p21 - p13p21_hat
 
-    if(i > end_time*25):
+    if(i > end_time*50):
         break
 
 # Postprocessing
 
 # Positions of the agents
-fig, axis = pl.subplots(1,1)
-axis.plot(log_p[0,:], log_p[1,:], 'r')
-axis.plot(log_p[2,:], log_p[3,:], 'og')
-axis.plot(log_p[4,:], log_p[5,:], 'ob')
-axis.set_xlabel("X [cm]")
-axis.set_ylabel("Y [cm]")
+#fig, axis = pl.subplots(1,1)
+#axis.plot(log_p[0,:], log_p[1,:], 'r')
+#axis.plot(log_p[2,:], log_p[3,:], 'og')
+#axis.plot(log_p[4,:], log_p[5,:], 'ob')
+#axis.set_xlabel("X [cm]")
+#axis.set_ylabel("Y [cm]")
 
 # Error signals Theorem 1
-fig, axis = pl.subplots(4,1, sharex=True)
-axis[0].set_title("Results from Theorem 1")
-axis[0].plot(log_time[:], log_error_th1[0,:])
-axis[1].plot(log_time[:], log_error_th1[1,:])
-axis[2].plot(log_time[:], log_error_th1[2,:])
-axis[3].plot(log_time[:], log_error_th1[3,:])
-axis[0].set_ylabel("$\hat p_{{13}_x} -  p_{{13}_x}$ [cm]")
-axis[1].set_ylabel("$\hat p_{{13}_y} -  p_{{13}_y}$ [cm]")
-axis[2].set_ylabel("$\hat p_{{21}_x} -  p_{{21}_x}$ [cm]")
-axis[3].set_ylabel("$\hat p_{{21}_y} -  p_{{21}_y}$ [cm]")
-axis[3].set_xlabel("Time [s]")
-for ax in axis:
-    ax.grid()
+#fig, axis = pl.subplots(4,1, sharex=True)
+#axis[0].set_title("Results from Theorem 1")
+#axis[0].plot(log_time[:], log_error_th1[0,:])
+#axis[1].plot(log_time[:], log_error_th1[1,:])
+#axis[2].plot(log_time[:], log_error_th1[2,:])
+#axis[3].plot(log_time[:], log_error_th1[3,:])
+#axis[0].set_ylabel("$\hat p_{{13}_x} -  p_{{13}_x}$ [cm]")
+#axis[1].set_ylabel("$\hat p_{{13}_y} -  p_{{13}_y}$ [cm]")
+#axis[2].set_ylabel("$\hat p_{{21}_x} -  p_{{21}_x}$ [cm]")
+#axis[3].set_ylabel("$\hat p_{{21}_y} -  p_{{21}_y}$ [cm]")
+#axis[3].set_xlabel("Time [s]")
+#for ax in axis:
+#    ax.grid()
 
 # Error signals Theorem 2
-fig, axis = pl.subplots(4,1, sharex=True)
-axis[0].set_title("Results from Theorem 2")
-axis[0].plot(log_time[:], log_error_th2[0,:])
-axis[1].plot(log_time[:], log_error_th2[1,:])
-axis[2].plot(log_time[:], log_error_th2[2,:])
-axis[3].plot(log_time[:], log_error_th2[3,:])
-axis[0].set_ylabel("$\hat p_{{13}_x} -  p_{{13}_x}$ [cm]")
-axis[1].set_ylabel("$\hat p_{{13}_y} -  p_{{13}_y}$ [cm]")
-axis[2].set_ylabel("$\hat p_{{21}_x} -  p_{{21}_x}$ [cm]")
-axis[3].set_ylabel("$\hat p_{{21}_y} -  p_{{21}_y}$ [cm]")
-axis[3].set_xlabel("Time [s]")
-for ax in axis:
-    ax.grid()
+#fig, axis = pl.subplots(4,1, sharex=True)
+#axis[0].set_title("Results from Theorem 2")
+#axis[0].plot(log_time[:], log_error_th2[0,:])
+#axis[1].plot(log_time[:], log_error_th2[1,:])
+#axis[2].plot(log_time[:], log_error_th2[2,:])
+#axis[3].plot(log_time[:], log_error_th2[3,:])
+#axis[0].set_ylabel("$\hat p_{{13}_x} -  p_{{13}_x}$ [cm]")
+#axis[1].set_ylabel("$\hat p_{{13}_y} -  p_{{13}_y}$ [cm]")
+#axis[2].set_ylabel("$\hat p_{{21}_x} -  p_{{21}_x}$ [cm]")
+#axis[3].set_ylabel("$\hat p_{{21}_y} -  p_{{21}_y}$ [cm]")
+#axis[3].set_xlabel("Time [s]")
+#for ax in axis:
+#    ax.grid()
 
 # Velocity signals
 fig, axis = pl.subplots(4,1, sharex=True)
@@ -364,6 +374,32 @@ axis[1].plot(log_time[:], log_v[1,:])
 axis[2].plot(log_time[:], log_v[2,:])
 axis[3].plot(log_time[:], log_v[3,:])
 axis[3].set_xlabel("Time [s]")
+for ax in axis:
+    ax.grid()
+
+# Interior angles signals
+fig, axis = pl.subplots(3,1, sharex=True)
+axis[0].set_title("Interior angles")
+axis[0].plot(log_time[:], log_alpha[0,:]*180/np.pi, '-')
+axis[1].plot(log_time[:], log_alpha[1,:]*180/np.pi, '-')
+axis[2].plot(log_time[:], log_alpha[2,:]*180/np.pi, '-')
+axis[0].set_ylabel("$\\alpha_{321} [degrees]$")
+axis[1].set_ylabel("$\\alpha_{123} [degrees]$")
+axis[2].set_ylabel("$\\alpha_{231} [degrees]$")
+axis[2].set_xlabel("Time [s]")
+for ax in axis:
+    ax.grid()
+
+# Interior angle velocities signals
+fig, axis = pl.subplots(3,1, sharex=True)
+axis[0].set_title("Interior angle velocities")
+axis[0].plot(log_time[:], log_alpha_dot[0,:]*180/np.pi, '-')
+axis[1].plot(log_time[:], log_alpha_dot[1,:]*180/np.pi, '-')
+axis[2].plot(log_time[:], log_alpha_dot[2,:]*180/np.pi, '-')
+axis[0].set_ylabel("$\\alpha_{321} [degrees/sec]$")
+axis[1].set_ylabel("$\\alpha_{123} [degrees/sec]$")
+axis[2].set_ylabel("$\\alpha_{231} [degrees/sec]$")
+axis[2].set_xlabel("Time [s]")
 for ax in axis:
     ax.grid()
 
