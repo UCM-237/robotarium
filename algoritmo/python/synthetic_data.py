@@ -137,9 +137,9 @@ M2 = M2t123(alpha_ex, alpha_dot_ex)
 # Check Theorem 1 & Theorem 2
 # First, we need to move the robots, lets do the isosceles triangle experiment
 
-tf = 30
-dt_inv = 100 # Sampling frequency in sec^-1
-dt = 1.0/dt_inv
+tf = 0.25
+dt = 0.02
+dt_inv = 1.0/dt # Sampling frequency in sec^-1
 
 log_time = np.linspace(0, tf, tf*dt_inv)
 log_p = np.zeros((6, np.size(log_time)))
@@ -151,9 +151,9 @@ log_error_th1 = np.zeros((4, np.size(log_time)))
 log_error_th2 = np.zeros((4, np.size(log_time)))
 
 # Initial conditions
-p1 = np.array([50,100])  # cm
+p1 = np.array([33, 84])  # cm
 p2 = np.array([0, 0])
-p3 = np.array([100, 0])
+p3 = np.array([-42, 84])
 
 p = np.zeros(6)
 p[0:2] = p1
@@ -166,11 +166,12 @@ k = 5 # estimator gain kc in Eq. 21
 for i in range(np.size(log_time)):
 
     # Velocity of robot 1
-    v1y = 10*2*np.pi*np.cos(2*np.pi*log_time[i])
+    # v2y = 10*2*np.pi*np.cos(2*np.pi*log_time[i])
+    v2y = 24.7
 
     v = np.zeros(6)
-    v[0:2] = np.array([0, v1y])
-    v[2:4] = np.array([0,0])
+    v[0:2] = np.array([0,0])
+    v[2:4] = np.array([0, v2y])
     v[4:6] = np.array([0,0])
 
     # Measurements
@@ -180,14 +181,20 @@ for i in range(np.size(log_time)):
     v23 = v[4:6] - v[2:4]
     alpha = compute_alphas_from_p(p)
 
+    print("Alpha raw: ", alpha*180/np.pi)
+
+
     # alpha_dot numerical, with the experimental data, we need to use this one
     if i > 1:
         num_alpha_dot = (alpha - log_alpha[:, i-1]) / dt
     else:
         num_alpha_dot = np.zeros(3) + 0.01
 
-    #alpha_dot = compute_alpha_dot(p,v)
-    alpha_dot = num_alpha_dot
+    alpha_dot = compute_alpha_dot(p,v)
+    #alpha_dot = num_alpha_dot
+    print("Alpha_dot: ", alpha_dot*180/np.pi)
+
+
 
     # Check that numerical and analytic are similar
     # print(alpha_dot - num_alpha_dot)
@@ -202,6 +209,9 @@ for i in range(np.size(log_time)):
     p13p21 = np.zeros(4) # So we can compare the estimation with the simulation
     p13p21[0:2] = p[4:6]-p[0:2]
     p13p21[2:4] = p[0:2]-p[2:4]
+
+    print("Direct measurement vel: ", v21, v31, v13, v23)
+    print("Direct measurement: ", p13p21estTh1[0:2], p13p21[0:2], p13p21estTh1[2:4], p13p21[2:4])
 
     # Theorem 2, Eq 21
     v13v21 = np.zeros(4)
@@ -226,42 +236,89 @@ for i in range(np.size(log_time)):
 
 # Postprocessing
 
-# Positions of the agents
+#Positions of the agents
 fig, axis = pl.subplots(1,1)
-axis.plot(log_p[0,:], log_p[1,:], 'r')
+axis.plot(log_p[0,:], log_p[1,:], 'or')
 axis.plot(log_p[2,:], log_p[3,:], 'og')
 axis.plot(log_p[4,:], log_p[5,:], 'ob')
 axis.set_xlabel("X [cm]")
 axis.set_ylabel("Y [cm]")
 
 # Error signals Theorem 1
+#fig, axis = pl.subplots(4,1, sharex=True)
+#axis[0].set_title("Results from Theorem 1")
+#axis[0].plot(log_time[:], log_error_th1[0,:])
+#axis[1].plot(log_time[:], log_error_th1[1,:])
+#axis[2].plot(log_time[:], log_error_th1[2,:])
+#axis[3].plot(log_time[:], log_error_th1[3,:])
+#axis[0].set_ylabel("$\hat p_{{13}_x} -  p_{{13}_x}$ [cm]")
+#axis[1].set_ylabel("$\hat p_{{13}_y} -  p_{{13}_y}$ [cm]")
+#axis[2].set_ylabel("$\hat p_{{21}_x} -  p_{{21}_x}$ [cm]")
+#axis[3].set_ylabel("$\hat p_{{21}_y} -  p_{{21}_y}$ [cm]")
+#axis[3].set_xlabel("Time [s]")
+#for ax in axis:
+#    ax.grid()
+
+# Error signals Theorem 2
+#fig, axis = pl.subplots(4,1, sharex=True)
+#axis[0].set_title("Results from Theorem 2")
+#axis[0].plot(log_time[:], log_error_th2[0,:])
+#axis[1].plot(log_time[:], log_error_th2[1,:])
+#axis[2].plot(log_time[:], log_error_th2[2,:])
+#axis[3].plot(log_time[:], log_error_th2[3,:])
+#axis[0].set_ylabel("$\hat p_{{13}_x} -  p_{{13}_x}$ [cm]")
+#axis[1].set_ylabel("$\hat p_{{13}_y} -  p_{{13}_y}$ [cm]")
+#axis[2].set_ylabel("$\hat p_{{21}_x} -  p_{{21}_x}$ [cm]")
+#axis[3].set_ylabel("$\hat p_{{21}_y} -  p_{{21}_y}$ [cm]")
+#axis[3].set_xlabel("Time [s]")
+#for ax in axis:
+#    ax.grid()
+
+# Velocity signals
 fig, axis = pl.subplots(4,1, sharex=True)
-axis[0].set_title("Results from Theorem 1")
-axis[0].plot(log_time[:], log_error_th1[0,:])
-axis[1].plot(log_time[:], log_error_th1[1,:])
-axis[2].plot(log_time[:], log_error_th1[2,:])
-axis[3].plot(log_time[:], log_error_th1[3,:])
-axis[0].set_ylabel("$\hat p_{{13}_x} -  p_{{13}_x}$ [cm]")
-axis[1].set_ylabel("$\hat p_{{13}_y} -  p_{{13}_y}$ [cm]")
-axis[2].set_ylabel("$\hat p_{{21}_x} -  p_{{21}_x}$ [cm]")
-axis[3].set_ylabel("$\hat p_{{21}_y} -  p_{{21}_y}$ [cm]")
+axis[0].set_title("SIM Relative velocities")
+axis[0].plot(log_time[:], log_v[0,:])
+axis[1].plot(log_time[:], log_v[1,:])
+axis[2].plot(log_time[:], log_v[2,:])
+axis[3].plot(log_time[:], log_v[3,:])
 axis[3].set_xlabel("Time [s]")
 for ax in axis:
     ax.grid()
 
-# Error signals Theorem 2
-fig, axis = pl.subplots(4,1, sharex=True)
-axis[0].set_title("Results from Theorem 2")
-axis[0].plot(log_time[:], log_error_th2[0,:])
-axis[1].plot(log_time[:], log_error_th2[1,:])
-axis[2].plot(log_time[:], log_error_th2[2,:])
-axis[3].plot(log_time[:], log_error_th2[3,:])
-axis[0].set_ylabel("$\hat p_{{13}_x} -  p_{{13}_x}$ [cm]")
-axis[1].set_ylabel("$\hat p_{{13}_y} -  p_{{13}_y}$ [cm]")
-axis[2].set_ylabel("$\hat p_{{21}_x} -  p_{{21}_x}$ [cm]")
-axis[3].set_ylabel("$\hat p_{{21}_y} -  p_{{21}_y}$ [cm]")
-axis[3].set_xlabel("Time [s]")
+# Interior angles signals
+fig, axis = pl.subplots(3,1, sharex=True)
+axis[0].set_title("SIM Interior angles")
+#axis[0].plot(t_fit, p_alpha_0_fit(t_fit)*180/np.pi, '-r')
+#axis[1].plot(t_fit, p_alpha_1_fit(t_fit)*180/np.pi, '-r')
+#axis[2].plot(t_fit, p_alpha_2_fit(t_fit)*180/np.pi, '-r')
+axis[0].plot(log_time[:], log_alpha[0,:]*180/np.pi, '-')
+axis[1].plot(log_time[:], log_alpha[1,:]*180/np.pi, '-')
+axis[2].plot(log_time[:], log_alpha[2,:]*180/np.pi, '-')
+axis[0].set_ylabel("$\\alpha_{321} [degrees]$")
+axis[1].set_ylabel("$\\alpha_{123} [degrees]$")
+axis[2].set_ylabel("$\\alpha_{231} [degrees]$")
+axis[2].set_xlabel("Time [s]")
+
+
 for ax in axis:
     ax.grid()
+
+# Interior angle velocities signals
+fig, axis = pl.subplots(3,1, sharex=True)
+axis[0].set_title("SIM Interior angle velocities")
+#axis[0].plot(t_fit, p_alpha_0_dot_fit(t_fit)*180/np.pi, '-r')
+#axis[1].plot(t_fit, p_alpha_1_dot_fit(t_fit)*180/np.pi, '-r')
+#axis[2].plot(t_fit, p_alpha_2_dot_fit(t_fit)*180/np.pi, '-r')
+axis[0].plot(log_time[:], log_alpha_dot[0,:]*180/np.pi, '-')
+axis[1].plot(log_time[:], log_alpha_dot[1,:]*180/np.pi, '-')
+axis[2].plot(log_time[:], log_alpha_dot[2,:]*180/np.pi, '-')
+axis[0].set_ylabel("$\\alpha_{321} [degrees/sec]$")
+axis[1].set_ylabel("$\\alpha_{123} [degrees/sec]$")
+axis[2].set_ylabel("$\\alpha_{231} [degrees/sec]$")
+axis[2].set_xlabel("Time [s]")
+for ax in axis:
+    ax.grid()
+
+
 
 pl.show()

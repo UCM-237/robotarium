@@ -12,6 +12,8 @@ from scipy.linalg import block_diag
 r1_log = np.loadtxt("./experiment3/logRP1_automatico.txt", delimiter=',', skiprows = 2)
 r2_log = np.loadtxt("./experiment3/logRP2_automatico.txt", delimiter=',', skiprows = 2)
 
+r2_log_vel = np.loadtxt("./experiment3/logRP2_automatico_vel_proc.txt", delimiter=',')
+
 
 def Rot(theta):
     # Rotation matrix
@@ -177,13 +179,26 @@ dt = 0.02
 dt_inv = 1.0/dt # Sampling frequency in sec^-1
 
 log_time = np.linspace(0, tf, tf*dt_inv)
-log_p = np.zeros((6, np.size(log_time)))
-log_v = np.zeros((6, np.size(log_time)))
-log_alpha = np.zeros((3, np.size(log_time)))
-log_alpha_dot = np.zeros((3, np.size(log_time)))
+log_p = np.empty((6, np.size(log_time)))
+log_v = np.empty((6, np.size(log_time)))
+log_alpha = np.empty((3, np.size(log_time)))
+log_alpha_dot = np.empty((3, np.size(log_time)))
 
-log_error_th1 = np.zeros((4, np.size(log_time)))
-log_error_th2 = np.zeros((4, np.size(log_time)))
+log_error_th1 = np.empty((4, np.size(log_time)))
+log_error_th2 = np.empty((4, np.size(log_time)))
+log_p = np.empty((4, np.size(log_time)))
+log_p_th1 = np.empty((4, np.size(log_time)))
+log_p_th2 = np.empty((4, np.size(log_time)))
+
+log_p[:] = np.NaN
+log_v[:] = np.NaN
+log_alpha[:] = np.NaN
+log_alpha_dot[:] = np.NaN
+log_error_th1[:] = np.NaN
+log_error_th2[:] = np.NaN
+log_p[:] = np.NaN
+log_p_th1[:] = np.NaN
+log_p_th2[:] = np.NaN
 
 p13p21_hat = np.zeros(4) # For the estimator in Theorem 2
 k = 5 # estimator gain kc in Eq. 21
@@ -194,14 +209,25 @@ R = 3.35 # Wheel's radius cm
 L = 12.4 # Nu sep que es cm
 Mc = np.array([[R/L, -R/L],[R/2.0, R/2.0]])
 
-beg_time = 0
-end_time = 1000
+beg_time = 50*4
+end_time = 50*60
+
+alpha_measurements = 0
+
+ring_it = 0
+ring_size = 5
+ring_alpha = np.empty((3, ring_size))
+ring_time = np.empty(ring_size)
+ring_alpha[:] = np.NaN
+ring_time[:] = np.NaN
 
 for i in range(np.size(log_time)):
 
-    if(i < beg_time*50):
+    if(i < beg_time):
         continue
 
+    alpha_sensor = 0
+    #print("Time: ", log_time[i])
 
     # Robots' velocities
     r1_wR = 0.0*r1_log[i][1]
@@ -214,6 +240,8 @@ for i in range(np.size(log_time)):
     r1_vel = Mc.dot(np.array([r1_wR, r1_wL]))
     r2_vel = Mc.dot(np.array([r2_wR, r2_wL]))
     r3_vel = Mc.dot(np.array([r3_wR, r3_wL]))
+
+    r2_vel[1] = r2_log_vel[i][2]
 
     w = r1_vel[0]
     W = np.array([[0, -w],[w, 0]])
@@ -232,16 +260,13 @@ for i in range(np.size(log_time)):
     v13 = -v31
     v23 = v[4:6] - v[2:4]
 
-    alpha_measurements = 0
-    alpha_dot_measurements = 0
-
     if(np.abs(r1_log[i][4]) < 9000  and np.abs(r1_log[i][8]) < 9000 and np.abs(r2_log[i][4]) < 9000  and np.abs(r2_log[i][8]) < 9000): # if four markers were detected
         if r1_log[i][3] == 2:
-            p12 = np.array([r1_log[i][4],-r1_log[i][6],-r1_log[i][5]]) * 100.0
-            p13 = np.array([r1_log[i][8],-r1_log[i][10],-r1_log[i][9]]) * 100.0
+            p12 = np.array([-r1_log[i][4],r1_log[i][6],r1_log[i][5]]) * 100.0
+            p13 = np.array([-r1_log[i][8],r1_log[i][10],r1_log[i][9]]) * 100.0
         else:
-            p13 = np.array([r1_log[i][4],-r1_log[i][6],-r1_log[i][5]]) * 100.0
-            p12 = np.array([r1_log[i][8],-r1_log[i][10],-r1_log[i][9]]) * 100.0
+            p13 = np.array([-r1_log[i][4],r1_log[i][6],r1_log[i][5]]) * 100.0
+            p12 = np.array([-r1_log[i][8],r1_log[i][10],r1_log[i][9]]) * 100.0
 
         if r2_log[i][3] == 1:
             p21 = np.array([r2_log[i][4],r2_log[i][6],r2_log[i][5]]) * 100.0
@@ -254,6 +279,11 @@ for i in range(np.size(log_time)):
         alpha_123 = compute_alpha_kij_from_arucos(p23, p21)
         alpha_312 = compute_alpha_kij_from_arucos(p12, p13)
 
+        # Correction for non being in the bisector
+        mid = p21 + p23
+        v21 = Rot(0*mid[0]).dot(v21)
+        v23 = Rot(0*mid[0]).dot(v23)
+
         #if(alpha_123 > np.pi):
         #    alpha_123 = 2*np.pi - alpha_123
 
@@ -265,76 +295,184 @@ for i in range(np.size(log_time)):
         else:
             alpha_231 = np.pi - alpha_123 - alpha_312
 
-        print(int(log_time[i]*1000 + 100), alpha_312*180/np.pi, alpha_123*180/np.pi, alpha_231*180/np.pi)
-        alpha_measurements = 1
-        alpha = np.zeros(3)
-        alpha[0] = alpha_312
-        alpha[1] = alpha_123
-        alpha[2] = alpha_231
+        alpha_sensor = 1
+        alpha_measurements = alpha_measurements + 1
+        alpha_raw = np.zeros(3)
+        alpha_raw[0] = alpha_312
+        alpha_raw[1] = alpha_123
+        alpha_raw[2] = alpha_231
+
+        ring_alpha[:, ring_it] = alpha_raw
+        ring_time[ring_it] = log_time[i]
+        ring_it = ring_it + 1
+
+        if(ring_it > (ring_size-1)):
+            ring_it = 0
+
+        if(log_time[i] > 5.90 and log_time[i] < 6.00):
+            ring_it = 0
+
+        #print("Alpha raw: ", alpha_raw*180/np.pi)
 
         # Relative positions from Aruco measurements to compare
         p13p21 = np.zeros(4)
         p13p21[0:2] = p13[0:2]
         p13p21[2:4] = p21[0:2]
 
-    # alpha_dot numerical, with the experimental data, we need to use this one
-    if ((i > 1) and not(np.isnan(log_alpha[0, i-1])) and alpha_measurements):
-        alpha_dot = (alpha - log_alpha[:, i-1]) / dt
-        alpha_dot_measurements = 1
-        print("Alpha dot: ", alpha_dot*180/np.pi)
+    #Polyfit
+    if(alpha_measurements > ring_size):
+        p_fit = np.polyfit(ring_time, ring_alpha[0, :], 1)
+        p_alpha_0_fit = np.poly1d(p_fit)
+        p_alpha_0_dot_fit = np.polyder(p_alpha_0_fit)
 
-    # Theorem 1, Eq 16
-    if (alpha_dot_measurements == 1):
+        p_fit = np.polyfit(ring_time, ring_alpha[1, :], 1)
+        p_alpha_1_fit = np.poly1d(p_fit)
+        p_alpha_1_dot_fit = np.polyder(p_alpha_1_fit)
+
+        p_fit = np.polyfit(ring_time, ring_alpha[2, :], 1)
+        p_alpha_2_fit = np.poly1d(p_fit)
+        p_alpha_2_dot_fit = np.polyder(p_alpha_2_fit)
+
+        alpha_fit = np.zeros(3)
+        alpha_dot_fit = np.zeros(3)
+        alpha_fit[0] = p_alpha_0_fit(log_time[i])
+        alpha_fit[1] = p_alpha_1_fit(log_time[i])
+        alpha_fit[2] = p_alpha_2_fit(log_time[i])
+        alpha_dot_fit[0] = p_alpha_0_dot_fit(log_time[i])
+        alpha_dot_fit[1] = p_alpha_1_dot_fit(log_time[i])
+        alpha_dot_fit[2] = p_alpha_2_dot_fit(log_time[i])
+
+        alpha = alpha_fit
+        alpha_dot = alpha_dot_fit
+
+        #print("Alpha fit: ", alpha*180/np.pi)
+        #print("Alpha_dot fit: ", alpha_dot*180/np.pi)
+
+        # Theorem 1, Eq 16
         M2 = M2t123(alpha, alpha_dot) # alpha = [a312 a123 a231]
         aux = np.zeros(4) # We will use it for Theorem 2 too.
         aux[0:2] = np.sin(alpha[1])*Rot(alpha[0]).T.dot(v21) - np.sin(alpha[2])*v31
         aux[2:4] = np.sin(alpha[0])*Rot(alpha[2]).T.dot(v13) - np.sin(alpha[1])*v23
         if(la.cond(M2) < 1e6):
             p13p21estTh1 = la.inv(M2).dot(aux)
-            print("Direct measurement vel: ", v21, v31, v13, v23)
-            print("Direct measurement: ", p13p21estTh1[0:2], p13[0:2], p13p21estTh1[2:4], p21[0:2])
+            #print("Direct measurement vel: ", v21, v31, v13, v23)
+            #print("Direct measurement: ", Rot(np.pi/180).dot(p13p21estTh1[0:2]), p23[0:2] - p21[0:2], p13p21estTh1[2:4], p21[0:2]) # Rot 55
 
-    # Theorem 2, Eq 21
-    v13v21 = np.zeros(4)
-    v13v21[0:2] = v13
-    v13v21[2:4] = v21
+        # Theorem 2, Eq 21
+        v13v21 = np.zeros(4)
+        v13v21[0:2] = v13
+        v13v21[2:4] = v21
 
-    if(alpha_dot_measurements == 1):
         p13p21_hat_dot = v13v21 - k*M2.T.dot(M2).dot(p13p21_hat) + k*M2.T.dot(aux) + Wblock.dot(p13p21_hat)
         p13p21_hat = p13p21_hat + p13p21_hat_dot * dt
-        print("Estimator: ", p13p21_hat[0:2], p13[0:2], p13p21_hat[2:4], p21[0:2])
-    else:
-        p13p21_hat_dot = v13v21 + Wblock.dot(p13p21_hat)
-        p13p21_hat = p13p21_hat + p13p21_hat_dot * dt
+        #print("Estimator: ", p13p21_hat[0:2], p13[0:2], p13p21_hat[2:4], p21[0:2])
 
     # Logs
 
     log_v[:,i] = v
-    if(alpha_measurements == 0):
+    if(alpha_sensor == 0):
         log_alpha[:, i] = np.NaN*np.ones(3)
     else:
-        log_alpha[:, i] = alpha
-    if(alpha_dot_measurements == 0):
+        log_alpha[:, i] = alpha_raw
+        p13_l =  p23[0:2] - p21[0:2]
+        p13p21 = np.zeros(4)
+        p13p21[0:2] = p13_l[0:2]
+        p13p21[2:4] = p21[0:2]
+        log_p[:,i] = p13p21
+
+    if(alpha_measurements <= ring_size):
         log_alpha_dot[:, i] = np.NaN*np.ones(3)
         log_error_th1[:,i] = np.NaN*np.ones(4)
         log_error_th2[:,i] = np.NaN*np.ones(4)
     else:
-        log_alpha_dot[:, i] = alpha_dot
+        log_alpha_dot[:, i] = alpha_dot_fit
         log_error_th1[:,i] = p13p21 - p13p21estTh1
         log_error_th2[:,i] = p13p21 - p13p21_hat
+        log_p_th1[:,i] = p13p21estTh1
+        log_p_th2[:,i] = p13p21_hat
 
-    if(i > end_time*50):
+    if(i > end_time):
         break
 
 # Postprocessing
 
-# Positions of the agents
-#fig, axis = pl.subplots(1,1)
-#axis.plot(log_p[0,:], log_p[1,:], 'r')
-#axis.plot(log_p[2,:], log_p[3,:], 'og')
-#axis.plot(log_p[4,:], log_p[5,:], 'ob')
-#axis.set_xlabel("X [cm]")
-#axis.set_ylabel("Y [cm]")
+# Polyfit
+
+bf = 200
+ef = 300
+x_fit = log_time[bf:ef]
+y_fit = log_alpha[0, bf:ef]
+idx = np.isfinite(x_fit) & np.isfinite(y_fit)
+p_fit = np.polyfit(x_fit[idx], y_fit[idx], 1)
+p_alpha_0_fit = np.poly1d(p_fit)
+p_alpha_0_dot_fit = np.polyder(p_alpha_0_fit)
+
+y_fit = log_alpha[1, bf:ef]
+idx = np.isfinite(x_fit) & np.isfinite(y_fit)
+p_fit = np.polyfit(x_fit[idx], y_fit[idx], 1)
+p_alpha_1_fit = np.poly1d(p_fit)
+p_alpha_1_dot_fit = np.polyder(p_alpha_1_fit)
+
+y_fit = log_alpha[2, bf:ef]
+idx = np.isfinite(x_fit) & np.isfinite(y_fit)
+p_fit = np.polyfit(x_fit[idx], y_fit[idx], 1)
+p_alpha_2_fit = np.poly1d(p_fit)
+p_alpha_2_dot_fit = np.polyder(p_alpha_2_fit)
+
+t_fit = np.linspace(log_time[bf], log_time[ef])
+
+# Positions of the agents (aruco)
+fig, axis = pl.subplots(1,1)
+axis.set_title("Onboard (Aruco) measurements, $p_{23}$ (red), $p_{21}$ (blue)")
+axis.plot(log_p[0,:] + log_p[2,:], log_p[1,:] + log_p[3,:], 'or')
+axis.plot(log_p[2,:], log_p[3,:], 'ob')
+axis.set_xlabel("X [cm]")
+axis.set_ylabel("Y [cm]")
+axis.set_xlim(-100, 100)
+axis.set_ylim(0, 200)
+axis.grid()
+
+# Positions of the agents (aruco)
+fig, axis = pl.subplots(1,1)
+axis.set_title("Onboard (Thm 1) measurements, $p_{23}$ (red), $p_{21}$ (blue)")
+axis.plot(log_p_th1[0,:] + log_p_th1[2,:], log_p_th1[1,:] + log_p_th1[3,:], 'or')
+axis.plot(log_p_th1[2,:], log_p_th1[3,:], 'ob')
+axis.set_xlabel("X [cm]")
+axis.set_ylabel("Y [cm]")
+axis.set_xlim(-100, 100)
+axis.set_ylim(0, 200)
+axis.grid()
+
+# Comparisons Thm1
+fig, axis = pl.subplots(2,1, sharex=True)
+axis[0].set_title("Onboard (Thm 1 and Aruco) measurements of $p_{23}$")
+axis[0].plot(log_time[:], log_p[0] + log_p[2,:], 'ob', label="Aruco")
+axis[0].plot(log_time[:], log_p_th1[0,:] + log_p_th1[2,:], 'xr', label="Thm1")
+axis[0].set_ylim(-100, 0)
+axis[1].plot(log_time[:], log_p[1] + log_p[3,:], 'ob', label="Aruco")
+axis[1].plot(log_time[:], log_p_th1[1,:] + log_p_th1[3,:], 'xr', label="Thm1")
+axis[1].set_ylim(0, 180)
+axis[0].set_ylabel("x [cm]")
+axis[1].set_ylabel("y [cm]")
+axis[1].set_xlabel("Time [s]")
+for ax in axis:
+    ax.grid()
+    ax.legend()
+
+fig, axis = pl.subplots(2,1, sharex=True)
+axis[0].set_title("Onboard (Thm 1 and Aruco) measurements of $p_{21}$")
+axis[0].plot(log_time[:], log_p[2,:], 'ob', label="Aruco")
+axis[0].plot(log_time[:], log_p_th1[2,:], 'xr', label="Thm1")
+axis[0].set_ylim(0, 80)
+axis[1].plot(log_time[:], log_p[3,:], 'ob', label="Aruco")
+axis[1].plot(log_time[:], log_p_th1[3,:], 'xr', label="Thm1")
+axis[1].set_ylim(0, 200)
+axis[0].set_ylabel("x [cm]")
+axis[1].set_ylabel("y [cm]")
+axis[1].set_xlabel("Time [s]")
+for ax in axis:
+    ax.grid()
+    ax.legend()
 
 # Error signals Theorem 1
 #fig, axis = pl.subplots(4,1, sharex=True)
@@ -380,6 +518,9 @@ for ax in axis:
 # Interior angles signals
 fig, axis = pl.subplots(3,1, sharex=True)
 axis[0].set_title("Interior angles")
+axis[0].plot(t_fit, p_alpha_0_fit(t_fit)*180/np.pi, '-r')
+axis[1].plot(t_fit, p_alpha_1_fit(t_fit)*180/np.pi, '-r')
+axis[2].plot(t_fit, p_alpha_2_fit(t_fit)*180/np.pi, '-r')
 axis[0].plot(log_time[:], log_alpha[0,:]*180/np.pi, '-')
 axis[1].plot(log_time[:], log_alpha[1,:]*180/np.pi, '-')
 axis[2].plot(log_time[:], log_alpha[2,:]*180/np.pi, '-')
@@ -387,15 +528,20 @@ axis[0].set_ylabel("$\\alpha_{321} [degrees]$")
 axis[1].set_ylabel("$\\alpha_{123} [degrees]$")
 axis[2].set_ylabel("$\\alpha_{231} [degrees]$")
 axis[2].set_xlabel("Time [s]")
+
+
 for ax in axis:
     ax.grid()
 
 # Interior angle velocities signals
 fig, axis = pl.subplots(3,1, sharex=True)
 axis[0].set_title("Interior angle velocities")
-axis[0].plot(log_time[:], log_alpha_dot[0,:]*180/np.pi, '-')
-axis[1].plot(log_time[:], log_alpha_dot[1,:]*180/np.pi, '-')
-axis[2].plot(log_time[:], log_alpha_dot[2,:]*180/np.pi, '-')
+axis[0].plot(t_fit, p_alpha_0_dot_fit(t_fit)*180/np.pi, '-r')
+axis[1].plot(t_fit, p_alpha_1_dot_fit(t_fit)*180/np.pi, '-r')
+axis[2].plot(t_fit, p_alpha_2_dot_fit(t_fit)*180/np.pi, '-r')
+#axis[0].plot(log_time[:], log_alpha_dot[0,:]*180/np.pi, '-')
+#axis[1].plot(log_time[:], log_alpha_dot[1,:]*180/np.pi, '-')
+#axis[2].plot(log_time[:], log_alpha_dot[2,:]*180/np.pi, '-')
 axis[0].set_ylabel("$\\alpha_{321} [degrees/sec]$")
 axis[1].set_ylabel("$\\alpha_{123} [degrees/sec]$")
 axis[2].set_ylabel("$\\alpha_{231} [degrees/sec]$")
